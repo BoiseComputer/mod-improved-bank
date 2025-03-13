@@ -10,27 +10,6 @@
 
 class npc_improved_bank : public CreatureScript
 {
-private:
-    std::unordered_map<uint32, ImprovedBank::PagedData> depositPagedDataMap;
-    std::unordered_map<uint32, ImprovedBank::PagedData> withdrawPagedDataMap;
-private:
-    bool AddPagedDataNpc(Player* player, Creature* creature, ImprovedBank::PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender)
-    {
-        ClearGossipMenuFor(player);
-        while (!sImprovedBank->AddPagedData(player, pagedData, page, sender, pageSender, refreshSender))
-        {
-            if (page == 0)
-            {
-                sImprovedBank->NoPagedData(player);
-                break;
-            }
-            else
-                page--;
-        }
-        pagedData.currentPage = page;
-        SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
-        return true;
-    }
 public:
     npc_improved_bank() : CreatureScript("npc_improved_bank")
     {
@@ -49,8 +28,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action) override
     {
-        ImprovedBank::PagedData& depositPageData = depositPagedDataMap[player->GetGUID().GetCounter()];
-        ImprovedBank::PagedData& withdrawPageData = withdrawPagedDataMap[player->GetSession()->GetAccountId()];
+        ImprovedBank::PagedData& pagedData = sImprovedBank->GetPagedData(player);
         if (sender == GOSSIP_SENDER_MAIN)
         {
             if (action == GOSSIP_ACTION_INFO_DEF)
@@ -60,13 +38,13 @@ public:
             }
             else if (action == GOSSIP_ACTION_INFO_DEF + 1)
             {
-                sImprovedBank->BuildItemCatalogueFromInventory(player, depositPageData);
-                return AddPagedDataNpc(player, creature, depositPageData, 0, GOSSIP_SENDER_MAIN + 1, GOSSIP_SENDER_MAIN + 2, GOSSIP_SENDER_MAIN + 2);
+                sImprovedBank->BuildDepositItemCatalogue(player);
+                return sImprovedBank->AddPagedData(player, creature, 0);
             }
             else if (action == GOSSIP_ACTION_INFO_DEF + 2)
             {
-                sImprovedBank->BuildWithdrawItemCatalogue(player, withdrawPageData);
-                return AddPagedDataNpc(player, creature, withdrawPageData, 0, GOSSIP_SENDER_MAIN + 3, GOSSIP_SENDER_MAIN + 4, GOSSIP_SENDER_MAIN + 5);
+                sImprovedBank->BuildWithdrawItemCatalogue(player);
+                return sImprovedBank->AddPagedData(player, creature, 0);
             }
             else if (action == GOSSIP_ACTION_INFO_DEF + 3)
             {
@@ -88,42 +66,32 @@ public:
         else if (sender == GOSSIP_SENDER_MAIN + 1)
         {
             uint32 id = action - GOSSIP_ACTION_INFO_DEF;
-            if (!sImprovedBank->DepositItem(id, player, depositPageData))
-            {
-                ChatHandler(player->GetSession()).SendSysMessage("Could not deposit item. Item might no longer be inventory.");
-                CloseGossipMenuFor(player);
-                return false;
-            }
-
-            sImprovedBank->BuildItemCatalogueFromInventory(player, depositPageData);
-            return AddPagedDataNpc(player, creature, depositPageData, depositPageData.currentPage, GOSSIP_SENDER_MAIN + 1, GOSSIP_SENDER_MAIN + 2, GOSSIP_SENDER_MAIN + 2);
+            return sImprovedBank->TakePagedDataAction(player, creature, id);
         }
         else if (sender == GOSSIP_SENDER_MAIN + 2)
         {
-            depositPageData.currentPage = action - GOSSIP_ACTION_INFO_DEF;
-            sImprovedBank->BuildItemCatalogueFromInventory(player, depositPageData);
-            return AddPagedDataNpc(player, creature, depositPageData, depositPageData.currentPage, GOSSIP_SENDER_MAIN + 1, GOSSIP_SENDER_MAIN + 2, GOSSIP_SENDER_MAIN + 2);
+            uint32 page = action - GOSSIP_ACTION_INFO_DEF;
+            return sImprovedBank->AddPagedData(player, creature, page);
         }
-        else if (sender == GOSSIP_SENDER_MAIN + 3)
+        else if (sender == GOSSIP_SENDER_MAIN + 20)
         {
-            uint32 id = action - GOSSIP_ACTION_INFO_DEF;
-            if (!sImprovedBank->WithdrawItem(id, player, withdrawPageData))
-            {
-                ChatHandler(player->GetSession()).SendSysMessage("Could not withdraw item. Possible reasons: item already withdrawn, no space in inventory, unique item already in inventory, item expired.");
-                CloseGossipMenuFor(player);
-                return false;
-            }
-            return AddPagedDataNpc(player, creature, withdrawPageData, withdrawPageData.currentPage, GOSSIP_SENDER_MAIN + 3, GOSSIP_SENDER_MAIN + 4, GOSSIP_SENDER_MAIN + 5);
+            sImprovedBank->BuildDepositItemCatalogue(player);
+            return sImprovedBank->AddPagedData(player, creature, 0);
         }
-        else if (sender == GOSSIP_SENDER_MAIN + 4)
+        else if (sender == GOSSIP_SENDER_MAIN + 21)
         {
-            withdrawPageData.currentPage = action - GOSSIP_ACTION_INFO_DEF;
-            return AddPagedDataNpc(player, creature, withdrawPageData, withdrawPageData.currentPage, GOSSIP_SENDER_MAIN + 3, GOSSIP_SENDER_MAIN + 4, GOSSIP_SENDER_MAIN + 5);
+            sImprovedBank->BuildItemSubClassesCatalogue(player, pagedData, ImprovedBank::PAGED_DATA_TYPE_DEPOSIT_SUBCLASS, pagedData.itemClass);
+            return sImprovedBank->AddPagedData(player, creature, 0);
         }
-        else if (sender == GOSSIP_SENDER_MAIN + 5)
+        else if (sender == GOSSIP_SENDER_MAIN + 22)
         {
-            sImprovedBank->BuildWithdrawItemCatalogue(player, withdrawPageData);
-            return AddPagedDataNpc(player, creature, withdrawPageData, withdrawPageData.currentPage, GOSSIP_SENDER_MAIN + 3, GOSSIP_SENDER_MAIN + 4, GOSSIP_SENDER_MAIN + 5);
+            sImprovedBank->BuildWithdrawItemCatalogue(player);
+            return sImprovedBank->AddPagedData(player, creature, 0);
+        }
+        else if (sender == GOSSIP_SENDER_MAIN + 23)
+        {
+            sImprovedBank->BuildItemSubClassesCatalogue(player, pagedData, ImprovedBank::PAGED_DATA_TYPE_WITHDRAW_SUBCLASS, pagedData.itemClass);
+            return sImprovedBank->AddPagedData(player, creature, 0);
         }
 
         CloseGossipMenuFor(player);

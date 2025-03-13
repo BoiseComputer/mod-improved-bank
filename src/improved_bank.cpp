@@ -19,10 +19,192 @@ ImprovedBank::ImprovedBank()
     searchBank = false;
     showDepositReagents = true;
     depositReagentsSearchBank = false;
+    categorizedItemMenuDeposit = true;
+    categorizedItemMenuWithdraw = true;
+
+    itemClasses = {
+        {0, "Consumable",
+            {
+                {0, "Consumable" },
+                {1, "Potion" },
+                {2, "Elixir" },
+                {3, "Flask" },
+                {4, "Scroll" },
+                {5, "Food & Drink" },
+                {6, "Item Enhancement" },
+                {7, "Bandage" },
+                {8, "Other" }
+            }
+        },
+
+        {1, "Container",
+            {
+                {0, "Bag"},
+                {1, "Soul Bag"},
+                {2, "Herb Bag"},
+                {3, "Enchanting Bag"},
+                {4, "Engineering Bag"},
+                {5, "Gem Bag"},
+                {6, "Mining Bag"},
+                {7, "Leatherworking Bag"},
+                {8, "Inscription Bag"}
+            }
+        },
+
+        {2, "Weapon",
+            {
+                {0, "One-Handed Axe"},
+                {1, "Two-Handed Axe"},
+                {2, "Bow"},
+                {3, "Gun"},
+                {4, "One-Handed Mace"},
+                {5, "Two-Handed Mace"},
+                {6, "Polearm"},
+                {7, "One-Handed Sword"},
+                {8, "Two-Handed Sword"},
+                {10, "Staff"},
+                {13, "Fist Weapon"},
+                {14, "Miscellaneous (ex. Mining Pick)"},
+                {15, "Dagger"},
+                {16, "Thrown"},
+                {17, "Spear"},
+                {18, "Crossbow"},
+                {19, "Wand"},
+                {20, "Fishing Pole"}
+            }
+        },
+
+        {3, "Gem",
+            {
+                {0, "Red"},
+                {1, "Blue"},
+                {2, "Yellow"},
+                {3, "Purple"},
+                {4, "Green"},
+                {5, "Orange"},
+                {6, "Meta"},
+                {7, "Simple"},
+                {8, "Prismatic"}
+            }
+        },
+
+        {4, "Armor",
+            {
+                {0, "Miscellaneous"},
+                {1, "Cloth"},
+                {2, "Leather"},
+                {3, "Mail"},
+                {4, "Plate"},
+                {6, "Shield"},
+                {7, "Libram"},
+                {8, "Idol"},
+                {9, "Totem"},
+                {10, "Sigil"}
+            }
+        },
+
+        {5, "Reagent",
+            {
+                {0, "Reagent"}
+            }
+        },
+
+        {6, "Projectile",
+            {
+                {2, "Arrow"},
+                {3, "Bullet"}
+            }
+        },
+
+        {7, "Trade Goods",
+            {
+                {0, "Trade Goods"},
+                {1, "Parts"},
+                {2, "Explosives"},
+                {3, "Devices"},
+                {4, "Jewelcrafting"},
+                {5, "Cloth"},
+                {6, "Leather"},
+                {7, "Metal & Stone"},
+                {8, "Meat"},
+                {9, "Herb"},
+                {10, "Elemental"},
+                {11, "Other"},
+                {12, "Enchanting"},
+                {13, "Materials"},
+                {14, "Armor Enchantment"},
+                {15, "Weapon Enchantment"}
+            }
+        },
+
+        {9, "Recipe",
+            {
+                {0, "Book"},
+                {1, "Leatherworking"},
+                {2, "Tailoring"},
+                {3, "Engineering"},
+                {4, "Blacksmithing"},
+                {5, "Cooking"},
+                {6, "Alchemy"},
+                {7, "First Aid"},
+                {8, "Enchanting"},
+                {9, "Fishing"},
+                {10, "Jewelcrafting"},
+            }
+        },
+
+        {11, "Quiver",
+            {
+                {2, "Quiver"},
+                {3, "Ammo Pouch"}
+            }
+        },
+
+        {12, "Quest",
+            {
+                {0, "Quest"}
+            }
+        },
+
+        {13, "Key",
+            {
+                {0, "Key"},
+                {1, "Lockpick"}
+            }
+        },
+
+        {15, "Miscellaneous",
+            {
+                {0, "Junk"},
+                {1, "Reagent"},
+                {2, "Pet"},
+                {3, "Holiday"},
+                {4, "Other"},
+                {5, "Mount"}
+            }
+        },
+
+        {16, "Glyph",
+            {
+                {1, "Warrior"},
+                {2, "Paladin"},
+                {3, "Hunter"},
+                {4, "Rogue"},
+                {5, "Priest"},
+                {6, "Death Knight"},
+                {7, "Shaman"},
+                {8, "Mage"},
+                {9, "Warlock"},
+                {11, "Druid"}
+            }
+        }
+    };
 }
 
 ImprovedBank::~ImprovedBank()
 {
+    for (auto& pageData : playerPagedData)
+        pageData.second.Reset();
 }
 
 ImprovedBank* ImprovedBank::instance()
@@ -42,6 +224,14 @@ void ImprovedBank::SetBlacklistedSubclasses(const std::string& subclasses)
 bool ImprovedBank::IsBlacklistedSubclass(int32 subclass) const
 {
     return blacklistedSubclasses.find(subclass) != blacklistedSubclasses.end();
+}
+
+/*static*/ bool ImprovedBank::CompareIdentifier(const BaseIdentifier* a, const BaseIdentifier* b)
+{
+    if (a->GetType() == ITEM_IDENTIFIER && b->GetType() == ITEM_IDENTIFIER)
+        return a->name < b->name;
+
+    return a->id < b->id;
 }
 
 std::string ImprovedBank::ItemIcon(uint32 entry, uint32 width, uint32 height, int x, int y) const
@@ -118,13 +308,21 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
     if (!itemTemplate)
         return;
 
+    if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED)
+    {
+        uint32 itemClass = pagedData.itemClass;
+        uint32 itemSubClass = pagedData.itemSubClass;
+        if (itemTemplate->Class != itemClass || itemTemplate->SubClass != itemSubClass)
+            return;
+    }
+
     if (item->IsNotEmptyBag())
         return;
 
-    ItemIdentifier itemIdentifier;
-    itemIdentifier.id = pagedData.data.size();
-    itemIdentifier.guid = item->GetGUID();
-    itemIdentifier.name = ItemNameWithLocale(player, itemTemplate, item->GetItemRandomPropertyId());
+    ItemIdentifier* itemIdentifier = new ItemIdentifier();
+    itemIdentifier->id = pagedData.data.size();
+    itemIdentifier->guid = item->GetGUID();
+    itemIdentifier->name = ItemNameWithLocale(player, itemTemplate, item->GetItemRandomPropertyId());
 
     std::ostringstream oss;
     oss << ItemIcon(item->GetEntry());
@@ -133,23 +331,84 @@ void ImprovedBank::AddDepositItem(const Player* player, const Item* item, PagedD
         oss << " - " << item->GetCount() << "x";
     oss << " - IN " << from;
 
-    itemIdentifier.duration = item->GetUInt32Value(ITEM_FIELD_DURATION);
-    itemIdentifier.tradeable = item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE);
+    itemIdentifier->duration = item->GetUInt32Value(ITEM_FIELD_DURATION);
+    itemIdentifier->tradeable = item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE);
 
-    if (itemIdentifier.duration > 0)
+    if (itemIdentifier->duration > 0)
         oss << " - |cffb50505DURATION|r";
-    if (itemIdentifier.tradeable)
+    if (itemIdentifier->tradeable)
         oss << " - |cffb50505TRADEABLE|r";
 
-    itemIdentifier.uiName = oss.str();
+    itemIdentifier->uiName = oss.str();
 
     pagedData.data.push_back(itemIdentifier);
 }
 
-void ImprovedBank::BuildItemCatalogueFromInventory(const Player* player, PagedData& pagedData)
+void ImprovedBank::BuildDepositItemCatalogue(const Player* player)
+{
+    PagedData& pagedData = GetPagedData(player);
+    pagedData.Reset();
+    bool categorized = GetCategorizedItemMenuDeposit();
+    pagedData.type = categorized ? PAGED_DATA_TYPE_DEPOSIT_CLASS : PAGED_DATA_TYPE_DEPOSIT_ALL;
+
+    if (!categorized)
+        BuildItemCatalogueFromInventory(player, pagedData);
+    else
+        BuildItemClassesCatalogue(player, pagedData, itemClasses);
+
+    pagedData.SortAndCalculateTotals();
+}
+
+void ImprovedBank::BuildItemClassesCatalogue(const Player* player, PagedData& pagedData, const std::vector<ClassifiedItem>& classifiedItems)
+{
+    for (const ClassifiedItem& item : classifiedItems)
+    {
+        BaseIdentifier* identifier = new BaseIdentifier();
+        identifier->id = item.id;
+        identifier->name = item.name;
+        identifier->uiName = item.name;
+        pagedData.data.push_back(identifier);
+    }
+}
+
+void ImprovedBank::BuildItemSubClassesCatalogue(const Player* player, PagedData& pagedData, PagedDataType type, uint32 id)
 {
     pagedData.Reset();
+    pagedData.type = type;
+    pagedData.itemClass = id;
 
+    const ClassifiedItem* classifiedItem = FindItemClass(id);
+    ASSERT(classifiedItem != nullptr);
+
+    BuildItemClassesCatalogue(player, pagedData, classifiedItem->subclasses);
+
+    pagedData.SortAndCalculateTotals();
+}
+
+void ImprovedBank::BuildItemCatalogueForDeposit(const Player* player, PagedData& pagedData, uint32 id)
+{
+    pagedData.Reset();
+    pagedData.itemSubClass = id;
+    pagedData.type = PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED;
+
+    BuildItemCatalogueFromInventory(player, pagedData);
+
+    pagedData.SortAndCalculateTotals();
+}
+
+void ImprovedBank::BuildItemCatalogueForWithdraw(const Player* player, PagedData& pagedData, uint32 id)
+{
+    pagedData.Reset();
+    pagedData.itemSubClass = id;
+    pagedData.type = PAGED_DATA_TYPE_WITHDRAW_CATEGORIZED;
+
+    BuildWithdrawItemCatalogue(player, pagedData);
+
+    pagedData.SortAndCalculateTotals();
+}
+
+void ImprovedBank::BuildItemCatalogueFromInventory(const Player* player, PagedData& pagedData)
+{
     for (uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++)
         if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
             AddDepositItem(player, item, pagedData, "BACKPACK");
@@ -180,8 +439,14 @@ void ImprovedBank::BuildItemCatalogueFromInventory(const Player* player, PagedDa
                     if (Item* item = player->GetItemByPos(i, j))
                         AddDepositItem(player, item, pagedData, "BANK BAGS");
     }
+}
 
-    pagedData.SortAndCalculateTotals();
+void ImprovedBank::PagedData::Reset()
+{
+    totalPages = 0;
+    for (BaseIdentifier* identifier : data)
+        delete identifier;
+    data.clear();
 }
 
 void ImprovedBank::PagedData::CalculateTotals()
@@ -195,74 +460,28 @@ void ImprovedBank::PagedData::SortAndCalculateTotals()
 {
     if (data.size() > 0)
     {
-        std::sort(data.begin(), data.end());
+        std::sort(data.begin(), data.end(), CompareIdentifier);
         CalculateTotals();
     }
 }
 
-bool ImprovedBank::AddPagedData(Player* player, const PagedData& pagedData, uint32 page, uint32 sender, uint32 pageSender, uint32 refreshSender)
+bool ImprovedBank::PagedData::IsEmpty() const
 {
-    const ItemIdentifierContainer& itemCatalogue = pagedData.data;
-    if (itemCatalogue.size() == 0 || (page + 1) > pagedData.totalPages)
-        return false;
-
-    uint32 lowIndex = page * PagedData::PAGE_SIZE;
-    if (itemCatalogue.size() <= lowIndex)
-        return false;
-
-    uint32 highIndex = lowIndex + PagedData::PAGE_SIZE - 1;
-    if (highIndex >= itemCatalogue.size())
-        highIndex = itemCatalogue.size() - 1;
-
-    for (uint32 i = lowIndex; i <= highIndex; i++)
-    {
-        const ItemIdentifier& itemInfo = itemCatalogue[i];
-        if (sender == GOSSIP_SENDER_MAIN + 1)
-        {
-            if (itemInfo.tradeable)
-                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id, "Item is eligible for BOP trade. Depositing it will invalidate this!", 0, false);
-            else if (itemInfo.duration > 0)
-                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id, "Item has an expiration time. Timer will still advance while the item is deposited!", 0, false);
-            else
-                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id);
-        }
-        else
-            AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemInfo.uiName, sender, GOSSIP_ACTION_INFO_DEF + itemInfo.id);
-    }
-
-    AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "[Refresh]", refreshSender, GOSSIP_ACTION_INFO_DEF + page);
-
-    if (page + 1 < pagedData.totalPages)
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[Next] ->", pageSender, GOSSIP_ACTION_INFO_DEF + page + 1);
-    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", page == 0 ? GOSSIP_SENDER_MAIN : pageSender, page == 0 ? GOSSIP_ACTION_INFO_DEF : GOSSIP_ACTION_INFO_DEF + page - 1);
-
-    return true;
+    return data.empty();
 }
 
-void ImprovedBank::NoPagedData(Player* player)
+const ImprovedBank::BaseIdentifier* ImprovedBank::PagedData::FindIdentifierById(uint32 id) const
+{
+    std::vector<BaseIdentifier*>::const_iterator citer = std::find_if(data.begin(), data.end(), [&](const BaseIdentifier* idnt) { return idnt->id == id; });
+    if (citer != data.end())
+        return *citer;
+    return nullptr;
+}
+
+void ImprovedBank::NoPagedData(Player* player, const PagedData& pagedData) const
 {
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505NOTHING ON THIS PAGE, GO BACK|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
     AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-}
-
-const ImprovedBank::ItemIdentifier* ImprovedBank::FindItemIdentifierById(uint32 id, const PagedData& pagedData) const
-{
-    ItemIdentifierContainer::const_iterator citer = std::find_if(pagedData.data.begin(), pagedData.data.end(), [&id](const ItemIdentifier& itemIdentifier) {
-        return itemIdentifier.id == id;
-    });
-    if (citer != pagedData.data.end())
-        return &*citer;
-    return nullptr;
-}
-
-ImprovedBank::ItemIdentifier* ImprovedBank::FindItemIdentifierById(uint32 id, PagedData& pagedData)
-{
-    ItemIdentifierContainer::iterator iter = std::find_if(pagedData.data.begin(), pagedData.data.end(), [&id](const ItemIdentifier& itemIdentifier) {
-        return itemIdentifier.id == id;
-        });
-    if (iter != pagedData.data.end())
-        return &*iter;
-    return nullptr;
 }
 
 std::string ImprovedBank::GetItemCharges(const Item* item) const
@@ -319,11 +538,26 @@ bool ImprovedBank::DepositItem(ObjectGuid itemGuid, Player* player, uint32* coun
 
 bool ImprovedBank::DepositItem(uint32 id, Player* player, const PagedData& pagedData)
 {
-    const ItemIdentifier* itemIdentifier = FindItemIdentifierById(id, pagedData);
+    const ItemIdentifier* itemIdentifier = (ItemIdentifier*)pagedData.FindIdentifierById(id);
     if (itemIdentifier == nullptr)
         return false;
 
     return DepositItem(itemIdentifier->guid, player);
+}
+
+void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player)
+{
+    PagedData& pagedData = GetPagedData(player);
+    pagedData.Reset();
+    bool categorized = GetCategorizedItemMenuWithdraw();
+    pagedData.type = categorized ? PAGED_DATA_TYPE_WITHDRAW_CLASS : PAGED_DATA_TYPE_WITHDRAW_ALL;
+
+    if (!categorized)
+        BuildWithdrawItemCatalogue(player, pagedData);
+    else
+        BuildItemClassesCatalogue(player, pagedData, itemClasses);
+
+    pagedData.SortAndCalculateTotals();
 }
 
 void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& pagedData)
@@ -347,49 +581,52 @@ void ImprovedBank::BuildWithdrawItemCatalogue(const Player* player, PagedData& p
     {
         Field* fields = result->Fetch();
 
-        ItemIdentifier itemIdentifier;
-        itemIdentifier.id = fields[0].Get<uint32>();
-        itemIdentifier.entry = fields[2].Get<uint32>();
-        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemIdentifier.entry);
+        ItemIdentifier* itemIdentifier = new ItemIdentifier();
+        itemIdentifier->id = fields[0].Get<uint32>();
+        itemIdentifier->entry = fields[2].Get<uint32>();
+        const ItemTemplate* itemTemplate = sObjectMgr->GetItemTemplate(itemIdentifier->entry);
         if (!itemTemplate)
             continue;
+        if (pagedData.type == PAGED_DATA_TYPE_WITHDRAW_CATEGORIZED)
+            if (itemTemplate->Class != pagedData.itemClass || itemTemplate->SubClass != pagedData.itemSubClass)
+                continue;
         int32 randomPropertyId = fields[9].Get<int32>();
-        itemIdentifier.randomPropertyId = randomPropertyId;
-        itemIdentifier.name = ItemNameWithLocale(player, itemTemplate, randomPropertyId);
-        itemIdentifier.count = fields[3].Get<uint32>();
+        itemIdentifier->randomPropertyId = randomPropertyId;
+        itemIdentifier->name = ItemNameWithLocale(player, itemTemplate, randomPropertyId);
+        itemIdentifier->count = fields[3].Get<uint32>();
 
         std::ostringstream oss;
-        oss << ItemIcon(itemIdentifier.entry);
+        oss << ItemIcon(itemIdentifier->entry);
         oss << ItemLink(player, itemTemplate, randomPropertyId);
-        if (itemIdentifier.count > 1)
-            oss << " - " << itemIdentifier.count << "x";
+        if (itemIdentifier->count > 1)
+            oss << " - " << itemIdentifier->count << "x";
         if (GetAccountWide() && player->GetGUID().GetCounter() != fields[1].Get<uint32>())
             oss << " - FROM " << fields[4].Get<std::string>();
 
-        itemIdentifier.depositTime = fields[11].Get<uint32>();
+        itemIdentifier->depositTime = fields[11].Get<uint32>();
 
         int32 duration = (int32)fields[5].Get<uint32>();
         if (duration == 0)
-            itemIdentifier.duration = 0;
+            itemIdentifier->duration = 0;
         else
         {
-            uint32 diff = GameTime::GetGameTime().count() - itemIdentifier.depositTime;
-            itemIdentifier.duration = duration - diff;
-            if (itemIdentifier.duration <= 0)
+            uint32 diff = GameTime::GetGameTime().count() - itemIdentifier->depositTime;
+            itemIdentifier->duration = duration - diff;
+            if (itemIdentifier->duration <= 0)
             {
-                itemIdentifier.duration = -1;
+                itemIdentifier->duration = -1;
                 oss << " - |cffb50505EXPIRED|r";
             }
         }
 
-        itemIdentifier.uiName = oss.str();
+        itemIdentifier->uiName = oss.str();
 
-        itemIdentifier.charges = fields[6].Get<std::string>();
-        itemIdentifier.flags = fields[7].Get<uint32>();
-        itemIdentifier.enchants = fields[8].Get<std::string>();
-        itemIdentifier.durability = fields[10].Get<uint32>();
-        itemIdentifier.creatorGuid = fields[12].Get<uint32>();
-        itemIdentifier.giftCreatorGuid = fields[13].Get<uint32>();
+        itemIdentifier->charges = fields[6].Get<std::string>();
+        itemIdentifier->flags = fields[7].Get<uint32>();
+        itemIdentifier->enchants = fields[8].Get<std::string>();
+        itemIdentifier->durability = fields[10].Get<uint32>();
+        itemIdentifier->creatorGuid = fields[12].Get<uint32>();
+        itemIdentifier->giftCreatorGuid = fields[13].Get<uint32>();
 
         pagedData.data.push_back(itemIdentifier);
     } while (result->NextRow());
@@ -473,7 +710,7 @@ Item* ImprovedBank::CreateItem(Player* player, ItemPosCountVec const& dest, uint
 
 bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
 {
-    ItemIdentifier* itemIdentifier = FindItemIdentifierById(id, pagedData);
+    ItemIdentifier* itemIdentifier = (ItemIdentifier*)pagedData.FindIdentifierById(id);
     if (itemIdentifier == nullptr)
         return false;
 
@@ -515,7 +752,7 @@ bool ImprovedBank::WithdrawItem(uint32 id, Player* player, PagedData& pagedData)
 
 void ImprovedBank::RemoveFromPagedData(uint32 id, PagedData& pagedData)
 {
-    ImprovedBank::ItemIdentifierContainer::const_iterator citr = std::remove_if(pagedData.data.begin(), pagedData.data.end(), [&](const ItemIdentifier& identifier) { return identifier.id == id; });
+    IdentifierContainer::const_iterator citr = std::remove_if(pagedData.data.begin(), pagedData.data.end(), [&](const BaseIdentifier* identifier) { return identifier->id == id; });
     pagedData.data.erase(citr, pagedData.data.end());
 
     pagedData.CalculateTotals();
@@ -562,4 +799,132 @@ void ImprovedBank::DepositAllReagents(Player* player, uint32* totalCount)
                         if (IsReagent(item))
                             DepositItem(item->GetGUID(), player, totalCount);
     }
+}
+
+ImprovedBank::PagedData& ImprovedBank::GetPagedData(const Player* player)
+{
+    return playerPagedData[player->GetGUID().GetCounter()];
+}
+
+bool ImprovedBank::_AddPagedData(Player* player, const PagedData& pagedData, uint32 page) const
+{
+    const IdentifierContainer& data = pagedData.data;
+    if (data.size() == 0 || (page + 1) > pagedData.totalPages)
+        return false;
+
+    uint32 lowIndex = page * PagedData::PAGE_SIZE;
+    if (data.size() <= lowIndex)
+        return false;
+
+    uint32 highIndex = lowIndex + PagedData::PAGE_SIZE - 1;
+    if (highIndex >= data.size())
+        highIndex = data.size() - 1;
+
+    for (uint32 i = lowIndex; i <= highIndex; i++)
+    {
+        const BaseIdentifier* identifier = data[i];
+        if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_ALL || pagedData.type == PAGED_DATA_TYPE_WITHDRAW_ALL
+            || pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED || pagedData.type == PAGED_DATA_TYPE_WITHDRAW_CATEGORIZED)
+        {
+            const ItemIdentifier* itemIdentifier = (ItemIdentifier*)identifier;
+            if (itemIdentifier->tradeable)
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemIdentifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + itemIdentifier->id, "Item is eligible for BOP trade. Depositing it will invalidate this!", 0, false);
+            else if (itemIdentifier->duration > 0)
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemIdentifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + itemIdentifier->id, "Item has an expiration time. Timer will still advance while the item is deposited!", 0, false);
+            else
+                AddGossipItemFor(player, GOSSIP_ICON_MONEY_BAG, itemIdentifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + itemIdentifier->id);
+        }
+        else
+            AddGossipItemFor(player, GOSSIP_ICON_VENDOR, identifier->uiName, GOSSIP_SENDER_MAIN + 1, GOSSIP_ACTION_INFO_DEF + identifier->id);
+    }
+
+    if (page + 1 < pagedData.totalPages)
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "[Next] ->", GOSSIP_SENDER_MAIN + 2, GOSSIP_ACTION_INFO_DEF + page + 1);
+
+    uint32 pageZeroSender = GOSSIP_SENDER_MAIN;
+    if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_SUBCLASS)
+        pageZeroSender += 20;
+    else if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED)
+        pageZeroSender += 21;
+    else if (pagedData.type == PAGED_DATA_TYPE_WITHDRAW_SUBCLASS)
+        pageZeroSender += 22;
+    else if (pagedData.type == PAGED_DATA_TYPE_WITHDRAW_CATEGORIZED)
+        pageZeroSender += 23;
+
+    AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<- [Back]", page == 0 ? pageZeroSender : GOSSIP_SENDER_MAIN + 2, page == 0 ? GOSSIP_ACTION_INFO_DEF : GOSSIP_ACTION_INFO_DEF + page - 1);
+
+    return true;
+}
+
+bool ImprovedBank::AddPagedData(Player* player, Creature* creature, uint32 page)
+{
+    ClearGossipMenuFor(player);
+    PagedData& pagedData = GetPagedData(player);
+    while (!_AddPagedData(player, pagedData, page))
+    {
+        if (page == 0)
+        {
+            NoPagedData(player, pagedData);
+            break;
+        }
+        else
+            page--;
+    }
+
+    pagedData.currentPage = page;
+
+    SendGossipMenuFor(player, DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
+    return true;
+}
+
+bool ImprovedBank::TakePagedDataAction(Player* player, Creature* creature, uint32 action)
+{
+    PagedData& pagedData = GetPagedData(player);
+    if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CLASS || pagedData.type == PAGED_DATA_TYPE_WITHDRAW_CLASS)
+    {
+        PagedDataType type = pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CLASS ? PAGED_DATA_TYPE_DEPOSIT_SUBCLASS : PAGED_DATA_TYPE_WITHDRAW_SUBCLASS;
+        BuildItemSubClassesCatalogue(player, pagedData, type, action);
+        return AddPagedData(player, creature, 0);
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_SUBCLASS)
+    {
+        BuildItemCatalogueForDeposit(player, pagedData, action);
+        return AddPagedData(player, creature, 0);
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_ALL || pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED)
+    {
+        if (!DepositItem(action, player, pagedData))
+            ChatHandler(player->GetSession()).SendSysMessage("Could not deposit item. Item might not longer be in inventory.");
+        else
+        {
+            if (pagedData.type == PAGED_DATA_TYPE_DEPOSIT_CATEGORIZED)
+                BuildItemCatalogueForDeposit(player, pagedData, pagedData.itemSubClass);
+            else
+                BuildDepositItemCatalogue(player);
+            return AddPagedData(player, creature, pagedData.currentPage);
+        }
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WITHDRAW_SUBCLASS)
+    {
+        BuildItemCatalogueForWithdraw(player, pagedData, action);
+        return AddPagedData(player, creature, 0);
+    }
+    else if (pagedData.type == PAGED_DATA_TYPE_WITHDRAW_ALL || pagedData.type == PAGED_DATA_TYPE_WITHDRAW_CATEGORIZED)
+    {
+        if (!WithdrawItem(action, player, pagedData))
+            ChatHandler(player->GetSession()).SendSysMessage("Could not withdraw item. Possible reasons: item already withdrawn, no space in inventory, unique item already in inventory, item expired.");
+        else
+            return AddPagedData(player, creature, pagedData.currentPage);
+    }
+
+    CloseGossipMenuFor(player);
+    return false;
+}
+
+const ImprovedBank::ClassifiedItem* ImprovedBank::FindItemClass(uint32 id) const
+{
+    std::vector<ClassifiedItem>::const_iterator citer = std::find_if(itemClasses.begin(), itemClasses.end(), [&](const ClassifiedItem& item) { return item.id == id; });
+    if (citer != itemClasses.end())
+        return &*citer;
+    return nullptr;
 }

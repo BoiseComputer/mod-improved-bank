@@ -52,3 +52,21 @@ ImprovedBank.Deposit.AllReagents.Bank = 0
 #
 
 ImprovedBank.Deposit.AllReagents.BlacklistSubclass = -1
+
+#
+#    ImprovedBank.Categorized.Item.Menu.Deposit
+#        Description: Show item categories when depositing items
+#        Default:     0 - Don't show categories
+#                     1 - Show categories
+#
+
+ImprovedBank.Categorized.Item.Menu.Deposit = 1
+
+#
+#    ImprovedBank.Categorized.Item.Menu.Withdraw
+#        Description: Show item categories when withdrawing items
+#        Default:     0 - Don't show categories
+#                     1 - Show categories
+#
+
+ImprovedBank.Categorized.Item.Menu.Withdraw = 1

@@ -16,6 +16,7 @@ This module requires at least this AzerothCore version: https://github.com/azero
 ![withdraw](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict1.png?raw=true)
 ![deposit](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict3.png?raw=true)
 ![main menu](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict2.png?raw=true)
+![categories](https://github.com/silviu20092/mod-improved-bank/blob/master/pics/pict4.jpg?raw=true)
 
 ## Credits
 - silviu20092
